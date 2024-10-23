@@ -239,8 +239,9 @@ public class MqManager {
         }
 
         public void check() {
+
             log.info("check start !");
-            Boolean hasKey = this.stringRedisTemplate.hasKey(RedisKeyConstants.redPackRemainPrefix + this.redPackId);
+            Boolean hasKey = this.stringRedisTemplate.hasKey(String.format(RedisKeyConstants.redPackRemainFormat, this.redPackId));
             if (hasKey) {
                 log.info("check restart !");
                 //红包还没过期，延迟5分钟执行 (不应该发生，真实mq抛出异常，基于mq重试即可)

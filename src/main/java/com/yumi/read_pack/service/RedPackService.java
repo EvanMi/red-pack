@@ -63,7 +63,7 @@ public class RedPackService {
             //模拟判断完成
             log.info("当前用户: {} 属于群组: {}", redPackGrabCommand.getUserId(), redPackGrabCommand.getGroupId());
         }
-        String redPackRedisMapKey = RedisKeyConstants.redPackRemainPrefix + redPackGrabCommand.getRedPackId();
+        String redPackRedisMapKey = String.format(RedisKeyConstants.redPackRemainFormat, redPackGrabCommand.getRedPackId());
         RedPackGrabResult redPackGrabResult = new RedPackGrabResult();
         redPackGrabResult.setGrabbed(false);
         redPackGrabResult.setMoney(0L);
@@ -79,8 +79,9 @@ public class RedPackService {
         }
 
         //如果已经抢过了，不能重复抢
-        List<String> strRange = stringRedisTemplate.opsForList().range(RedisKeyConstants.redPackRecordListPrefix
-                + redPackGrabCommand.getRedPackId(), 0, -1);
+        List<String> strRange = stringRedisTemplate.opsForList().range(
+                String.format(RedisKeyConstants.redPackRecordListFormat, redPackGrabCommand.getRedPackId())
+                , 0, -1);
         if (null != strRange && strRange.size() > 0) {
             Optional<RedPackRecord> anyRecord = strRange.stream().map(str -> JSON.parseObject(str, RedPackRecord.class))
                     .filter(record -> record.getOwnerId().equals(redPackGrabCommand.getUserId()))
@@ -240,7 +241,7 @@ public class RedPackService {
                         return res
                                 """;
                 String strRedPackRecordId = stringRedisTemplate.execute(RedisScript.of(script, String.class), List.of(redPackRedisMapKey,
-                                RedisKeyConstants.redPackListPrefix + redPackGrabCommand.getRedPackId()),
+                                String.format(RedisKeyConstants.redPackListFormat,redPackGrabCommand.getRedPackId())),
                         RedisKeyConstants.totalField);
                 log.info("redPackRecordId: {}", strRedPackRecordId);
                 Long redPackRecordId = Long.parseLong(strRedPackRecordId);
@@ -280,7 +281,7 @@ public class RedPackService {
      */
     private void processRedPackRecordPay(RedPackRecord redPackRecord) {
         //缓存红包抢夺结果
-        String key = RedisKeyConstants.redPackRecordListPrefix + redPackRecord.getRedPackId();
+        String key = String.format(RedisKeyConstants.redPackRecordListFormat, redPackRecord.getRedPackId());
         stringRedisTemplate.opsForList().leftPush(key, JSON.toJSONString(redPackRecord));
         stringRedisTemplate.expire(key, Duration.ofSeconds(redPackInfoTimeoutSeconds));
         try {
@@ -360,7 +361,7 @@ public class RedPackService {
                 redis.call("EXPIRE", key, redPackCacheTimeoutSeconds)
                 """;
         if (redPack.getRedPackType().equals(RedPackType.USER) || redPack.getRedPackType().equals(RedPackType.GROUP_NORMAL)) {
-            stringRedisTemplate.execute(RedisScript.of(script), List.of(RedisKeyConstants.redPackRemainPrefix + redPack.getId()),
+            stringRedisTemplate.execute(RedisScript.of(script), List.of(String.format(RedisKeyConstants.redPackRemainFormat,redPack.getId())),
                     RedisKeyConstants.moneyField, String.valueOf(redPack.getTotalMoney()),
                     RedisKeyConstants.totalField, String.valueOf(redPack.getTotalRedPackNum()),
                     RedisKeyConstants.redPackTypeField, String.valueOf(redPack.getRedPackType().getCode()),
@@ -383,13 +384,13 @@ public class RedPackService {
                 redPackRecord.setCreated(LocalDateTime.now());
                 redPackRecord.setModified(redPackRecord.getCreated());
                     redPackRecordMapper.insert(redPackRecord);
-                stringRedisTemplate.opsForList().leftPush(RedisKeyConstants.redPackListPrefix + redPack.getId(),
+                stringRedisTemplate.opsForList().leftPush(String.format(RedisKeyConstants.redPackListFormat, redPack.getId()),
                         String.valueOf(redPackRecord.getId()));
-                stringRedisTemplate.expire(RedisKeyConstants.redPackListPrefix + redPack.getId(),
+                stringRedisTemplate.expire(String.format(RedisKeyConstants.redPackListFormat, redPack.getId()),
                         Duration.ofSeconds(redPackCacheTimeoutSeconds));
             }
             log.info("预拆分完成!!");
-            stringRedisTemplate.execute(RedisScript.of(script), List.of(RedisKeyConstants.redPackRemainPrefix + redPack.getId()),
+            stringRedisTemplate.execute(RedisScript.of(script), List.of(String.format(RedisKeyConstants.redPackRemainFormat,redPack.getId())),
                     RedisKeyConstants.moneyField, String.valueOf(redPack.getTotalMoney()),
                     RedisKeyConstants.totalField, String.valueOf(redPack.getTotalRedPackNum()),
                     RedisKeyConstants.redPackTypeField, String.valueOf(RedPackType.GROUP_RANDOM_PRE_SPLIT.getCode()),
@@ -398,7 +399,7 @@ public class RedPackService {
         }
         else if (redPack.getRedPackType().equals(RedPackType.GROUP_RANDOM_REALTIME_SPLIT)) {
             //实时拆分
-            stringRedisTemplate.execute(RedisScript.of(script), List.of(RedisKeyConstants.redPackRemainPrefix + redPack.getId()),
+            stringRedisTemplate.execute(RedisScript.of(script), List.of(String.format(RedisKeyConstants.redPackRemainFormat, redPack.getId())),
                     RedisKeyConstants.moneyField, String.valueOf(redPack.getTotalMoney() - redPack.getTotalRedPackNum()),
                     RedisKeyConstants.totalField, String.valueOf(redPack.getTotalRedPackNum()),
                     RedisKeyConstants.redPackTypeField, String.valueOf(RedPackType.GROUP_RANDOM_REALTIME_SPLIT.getCode()),
@@ -429,19 +430,21 @@ public class RedPackService {
         redPackViewResult.setCode(0);
         redPackViewResult.setRedPack(redPack);
 
-        Object cachedRecords = caffeineCache.getIfPresent(RedisKeyConstants.redPackRecordListPrefix + redPackViewCommand.getRedPackId());
+        Object cachedRecords = caffeineCache.getIfPresent(String.format(RedisKeyConstants.redPackRecordListFormat, redPackViewCommand.getRedPackId()));
         List<RedPackRecord> redPackRecordList = null;
         if (null != cachedRecords) {
             log.info("红包记录命中缓存~~~");
             redPackRecordList = (List<RedPackRecord>) cachedRecords;
         } else {
-            List<String> strRange = stringRedisTemplate.opsForList().range(RedisKeyConstants.redPackRecordListPrefix + redPackViewCommand.getRedPackId(), 0, -1);
+            List<String> strRange = stringRedisTemplate.opsForList().range(String.format(RedisKeyConstants.redPackRecordListFormat, redPackViewCommand.getRedPackId())
+                    , 0, -1);
             if (null != strRange && strRange.size() > 0) {
                 redPackRecordList = strRange.stream().map(str -> JSON.parseObject(str, RedPackRecord.class))
                         .toList();
                 if (redPackRecordList.size() == redPack.getTotalRedPackNum()) {
                     //只有全部红包抢完以后才会加入缓存
-                    caffeineCache.put(RedisKeyConstants.redPackRecordListPrefix + redPackViewCommand.getRedPackId(), redPackRecordList);
+                    caffeineCache.put(String.format(RedisKeyConstants.redPackRecordListFormat, redPackViewCommand.getRedPackId()),
+                            redPackRecordList);
                 }
             }
         }

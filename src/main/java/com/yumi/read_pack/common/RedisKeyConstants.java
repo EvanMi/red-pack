@@ -4,16 +4,16 @@ public interface RedisKeyConstants {
     /**
      * 红包余额redis key
      */
-    String redPackRemainPrefix = "com#yumi#red#pack#remain#";
+    String redPackRemainFormat = "com#yumi#red#pack#remain#{%s}";
     String moneyField = "money";
     String totalField = "total";
     String redPackTypeField = "type";
     String redPackTargetField = "targetId";
 
     /**预分配红包id列表 key*/
-    String redPackListPrefix = "com#yumi#red#pack#list#";
+    String redPackListFormat = "com#yumi#red#pack#list#{%s}";
     /**已抢红包列表*/
-    String redPackRecordListPrefix = "com#yumi#red#pack#record#list#";
+    String redPackRecordListFormat = "com#yumi#red#pack#record#list#{%s}";
     /**
      * 红包信息缓存
      * */

@@ -77,7 +77,7 @@ public class ClientTests {
             executorService.submit(() -> {
                 try {
                     cyclicBarrier.await();
-                    RedPackGrabResult redPackGrabResult = grabRedPack(1848543657172000770L, (long) finalI, 1L);
+                    RedPackGrabResult redPackGrabResult = grabRedPack(1848990814479863810L, (long) finalI, 1L);
                     totalMoney.addAndGet(redPackGrabResult.getMoney());
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
