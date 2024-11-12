@@ -28,6 +28,7 @@ public interface CodeDescEnum <T extends Enum<T> & CodeDescEnum<T>> {
                     //保证初始化
                     try {
                         clazz.getMethod("values").invoke(null);
+                        integerCodeDescEnumMap = State.code2EnumMap.get(clazz);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
